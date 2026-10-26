@@ -39,6 +39,7 @@ jobs:
   firmware:
     name: Build and attach .uf2 and PicoPods Web
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
@@ -58,7 +59,7 @@ jobs:
           submodules: true
       - name: Packages
         run: >
-          sudo apt-get update && sudo apt-get install -y cmake ninja-build python3 zip
+          tools/ci_apt.sh cmake ninja-build python3 zip
           gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib
       - name: Build
         env:

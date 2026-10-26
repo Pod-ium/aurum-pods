@@ -31,6 +31,7 @@ jobs:
   build:
     if: vars.PICOPODS_PAGES == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - name: PicoPods libraries and examples (hydrogenium-pods)
@@ -59,7 +60,7 @@ jobs:
           path: pico-sdk
           submodules: true
       - name: Packages
-        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build python3
+        run: tools/ci_apt.sh cmake ninja-build python3
       - uses: mymindstorm/setup-emsdk@v14
         with:
           version: 3.1.74
@@ -77,6 +78,7 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
