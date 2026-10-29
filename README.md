@@ -9,7 +9,7 @@ system in a browser.
 | Pod | Folder | What it is |
 |---|---|---|
 | **PodBoy** 1.2 | [`pods/podboy`](pods/podboy) | Game Boy (DMG) emulator. Needs an RP2350 |
-| **PicoPods Web** | [`web/`](web) | Every pod (PodBoy, Pod Writer, Pod Files, PicoCraft, the demo) in a browser page with a touch PicoCalc keyboard |
+| **PicoPods Web** | [`web/`](web) | Every pod (PodBoy, Pod Writer, Pod Files, PodCraft, the demo) in a browser page with a touch PicoCalc keyboard |
 
 Part of the Pod-ium family of PicoCalc firmwares: [hydrogenium-pods](https://github.com/Pod-ium/hydrogenium-pods)
 (libraries and examples), [helium-pods](https://github.com/Pod-ium/helium-pods) (games),
