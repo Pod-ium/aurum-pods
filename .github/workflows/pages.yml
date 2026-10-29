@@ -1,0 +1,87 @@
+# Publishes PicoPods Web (every pod in the browser, tools/build_web.sh) to
+# GitHub Pages on every push to main. Opt-in: enable Pages with source
+# "GitHub Actions" (Settings > Pages), then set the repository variable
+# PICOPODS_PAGES to true (Settings > Secrets and variables > Actions).
+# The other repositories' pods are taken from their main branch (or from the
+# PICOPODS_REF, CARBO_PODS_REF and HELIUM_PODS_REF variables). They do not
+# trigger this workflow: run it by hand (or let the weekly run pick them up)
+# to publish their changes.
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 4 * * 1"   # Mondays: picks up the other repositories' changes
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  PICOPODS_PATH: ${{ github.workspace }}/hydrogenium-pods
+
+jobs:
+  build:
+    if: vars.PICOPODS_PAGES == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: PicoPods libraries and examples (hydrogenium-pods)
+        uses: actions/checkout@v4
+        with:
+          repository: Pod-ium/hydrogenium-pods
+          ref: ${{ vars.PICOPODS_REF || 'main' }}
+          path: hydrogenium-pods
+      - name: Productivity pods (carbo-pods)
+        uses: actions/checkout@v4
+        with:
+          repository: Pod-ium/carbo-pods
+          ref: ${{ vars.CARBO_PODS_REF || 'main' }}
+          path: carbo-pods
+      - name: Games (helium-pods)
+        uses: actions/checkout@v4
+        with:
+          repository: Pod-ium/helium-pods
+          ref: ${{ vars.HELIUM_PODS_REF || 'main' }}
+          path: helium-pods
+      - name: Pico SDK (mbedTLS sources)
+        uses: actions/checkout@v4
+        with:
+          repository: raspberrypi/pico-sdk
+          ref: "2.1.1"
+          path: pico-sdk
+          submodules: true
+      - name: Packages
+        run: tools/ci_apt.sh cmake ninja-build python3
+      - uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.74
+      - name: Build
+        env:
+          PICO_SDK_PATH: ${{ github.workspace }}/pico-sdk
+          CARBO_PODS_PATH: ${{ github.workspace }}/carbo-pods
+          HELIUM_PODS_PATH: ${{ github.workspace }}/helium-pods
+          CMAKE_GENERATOR: Ninja
+        run: tools/build_web.sh dist/web
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

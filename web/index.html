@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>PicoPods Web</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="theme-color" content="#16171a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Martian+Mono:wght@400;600&family=Instrument+Sans:wght@400;600&display=swap">
+<style>
+/* Layout: the page is the device. A dark case, the 320x320 screen in a bezel,
+   the keyboard below it filling what is left of the phone's height. One
+   deliberate look (the PicoCalc's black case), so no light variant. */
+:root {
+  --case: #16171a;        /* device body */
+  --bezel: #0b0c0e;       /* around the screen */
+  --cap: #2a2c32;         /* key caps */
+  --cap-dim: #202227;     /* function / modifier caps */
+  --legend: #e8e4da;      /* key legends, body text */
+  --muted: #8d8a83;       /* secondary text */
+  --amber: #f0a23b;       /* armed modifier, primary action (Pod Writer's accent) */
+  --line: #33363d;
+  --danger: #e0614e;
+  --font-key: "Martian Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --font-body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--case); color: var(--legend);
+  font: 15px/1.45 var(--font-body);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+button { font: inherit; color: inherit; }
+button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.wrap {
+  max-width: 560px; margin: 0 auto; height: 100%;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  box-sizing: border-box;
+}
+.label { font: 600 11px/1 var(--font-key); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+
+/* ---------- launcher */
+#launcher { padding-block: 28px 40px; display: flex; flex-direction: column; gap: 28px; overflow-y: auto; }
+.brand { display: flex; flex-direction: column; gap: 8px; }
+.brand h1 { margin: 0; font: 600 26px/1.1 var(--font-key); letter-spacing: -.01em; text-wrap: balance; }
+.brand p { margin: 0; color: var(--muted); max-width: 46ch; }
+.shelf { display: flex; flex-direction: column; gap: 10px; }
+.shelf-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.pods { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.pod {
+  display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 12px;
+  padding: 14px 16px; background: var(--cap); border: 1px solid var(--line); border-radius: 10px;
+  text-align: left; cursor: pointer; width: 100%; box-sizing: border-box;
+  box-shadow: 0 2px 0 var(--bezel);
+}
+.pod:active { transform: translateY(1px); box-shadow: 0 1px 0 var(--bezel); }
+.pod-name { font: 600 15px/1.2 var(--font-key); }
+.pod-meta { font: 400 11px/1 var(--font-key); color: var(--muted); font-variant-numeric: tabular-nums; }
+.pod-desc { grid-column: 1 / -1; color: var(--muted); font-size: 13.5px; }
+.pod-row { display: flex; gap: 8px; align-items: stretch; }
+.pod-row .pod { flex: 1; min-width: 0; }
+.pod-remove { flex: none; width: 48px; background: var(--cap-dim); border: 1px solid var(--line); border-radius: 10px; color: var(--muted); cursor: pointer; }
+.pod-remove.confirm { color: var(--danger); border-color: var(--danger); }
+.empty { color: var(--muted); font-size: 13.5px; margin: 0; }
+.load-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 16px;
+  background: transparent; border: 1px dashed var(--muted); border-radius: 10px; cursor: pointer; color: var(--legend);
+}
+.notes { color: var(--muted); font-size: 13px; display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--line); padding-top: 16px; }
+.notes p { margin: 0; max-width: 62ch; }
+.notes code { font: 12px var(--font-key); color: var(--legend); }
+
+/* ---------- runner */
+#runner { display: flex; flex-direction: column; gap: 10px; padding-block: 8px 10px; }
+.bar { display: flex; align-items: center; gap: 8px; min-height: 40px; }
+.bar-title { flex: 1; min-width: 0; font: 600 13px/1 var(--font-key); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.icon-btn {
+  min-width: 40px; height: 36px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--cap-dim); cursor: pointer; font: 600 11px/1 var(--font-key); letter-spacing: .04em;
+}
+.icon-btn[aria-pressed="true"] { border-color: var(--amber); color: var(--amber); }
+.screen-box { flex: none; display: flex; justify-content: center; }
+.bezel { background: var(--bezel); padding: 8px; border-radius: 10px; box-shadow: inset 0 0 0 1px #000, 0 1px 0 #2b2d33; position: relative; }
+#screen {
+  display: block; image-rendering: pixelated; image-rendering: crisp-edges; background: #000;
+  width: var(--screen-size, 320px); height: var(--screen-size, 320px); max-width: 100%;
+}
+.overlay {
+  position: absolute; inset: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px; padding: 20px; text-align: center; background: rgba(11, 12, 14, .88);
+}
+.overlay h2 { margin: 0; font: 600 18px/1.2 var(--font-key); }
+.overlay p { margin: 0; color: var(--muted); font-size: 13.5px; max-width: 32ch; }
+.primary {
+  min-height: 44px; padding: 0 22px; border-radius: 10px; border: 0; cursor: pointer;
+  background: var(--amber); color: #1b1408; font: 600 14px/1 var(--font-key);
+}
+
+/* keyboard: 10-column grid, caps sized from the space left */
+#keyboard { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; touch-action: none; user-select: none; -webkit-user-select: none; }
+.krow { flex: 1; min-height: 30px; max-height: 58px; display: grid; grid-template-columns: repeat(10, 1fr); gap: 5px; }
+.key {
+  display: flex; align-items: center; justify-content: center; position: relative;
+  background: var(--cap); border-radius: 7px; box-shadow: 0 2px 0 var(--bezel);
+  font: 400 clamp(12px, 3.6vw, 16px)/1 var(--font-key); color: var(--legend); cursor: pointer;
+  touch-action: none;
+}
+.key.fn { background: var(--cap-dim); font-size: clamp(9px, 2.6vw, 12px); letter-spacing: .02em; }
+.key.wide2 { grid-column: span 2; }
+.key.wide3 { grid-column: span 3; }
+.key.down { transform: translateY(2px); box-shadow: none; background: #3a3d45; }
+.key.armed { color: var(--amber); box-shadow: 0 2px 0 var(--bezel), inset 0 0 0 1px var(--amber); }
+.key.locked { background: var(--amber); color: #1b1408; }
+.key .alt { position: absolute; top: 3px; right: 5px; font-size: 8px; color: var(--muted); }
+
+/* ---------- SD card panel */
+#panel { position: fixed; inset: 0; background: rgba(0, 0, 0, .55); display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
+.sheet {
+  width: 100%; max-width: 560px; max-height: 80%; box-sizing: border-box; background: var(--case);
+  border-top: 1px solid var(--line); border-radius: 14px 14px 0 0; display: flex; flex-direction: column; gap: 12px;
+  padding-block: 16px max(16px, env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.sheet-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.sheet-head h2 { margin: 0; font: 600 16px/1 var(--font-key); }
+.upload { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.upload input[type=text] {
+  flex: 1; min-width: 120px; height: 40px; box-sizing: border-box; padding: 0 10px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--bezel); color: var(--legend); font: 13px var(--font-key);
+}
+.chips { display: flex; gap: 6px; }
+.files { flex: 1; min-height: 80px; overflow-y: auto; margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
+.files li { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.files .path { font: 12.5px/1.3 var(--font-key); min-width: 0; overflow-wrap: anywhere; }
+.files .size { font: 11px var(--font-key); color: var(--muted); font-variant-numeric: tabular-nums; }
+.files .row-btns { display: flex; gap: 6px; }
+.hint { color: var(--muted); font-size: 12.5px; margin: 0; }
+#log { font: 11px/1.4 var(--font-key); color: var(--muted); white-space: pre-wrap; max-height: 30vh; overflow: auto; margin: 0; background: var(--bezel); padding: 8px; border-radius: 8px; }
+@media (prefers-reduced-motion: reduce) { .pod:active, .key.down { transform: none; } }
+</style>
+</head>
+<body>
+
+<main id="launcher" class="wrap" hidden>
+  <header class="brand">
+    <span class="label">PicoCalc · Pico 2 W · in your browser</span>
+    <h1>PicoPods</h1>
+    <p>Run the pods without the device. Pick one to start it, or load a pod file you built (<code>*.pod.js</code>) like a cartridge.</p>
+  </header>
+
+  <section class="shelf" aria-labelledby="builtin-h">
+    <div class="shelf-head"><h2 id="builtin-h" class="label">Built in</h2></div>
+    <ul id="builtin" class="pods"></ul>
+    <p id="builtin-empty" class="empty" hidden>No built-in pods next to this page. Build them with <code>tools/build_web.sh</code>.</p>
+  </section>
+
+  <section class="shelf" aria-labelledby="library-h">
+    <div class="shelf-head">
+      <h2 id="library-h" class="label">Your pods</h2>
+    </div>
+    <ul id="library" class="pods"></ul>
+    <p id="library-empty" class="empty">Pods you load stay here, in this browser.</p>
+    <div><button id="load-pod" class="load-btn" type="button">Load a pod file…</button></div>
+    <input id="pod-file" type="file" accept=".js" hidden>
+  </section>
+
+  <footer class="notes">
+    <p>All pods share one SD card, kept in this browser. Put ROMs for PodBoy in <code>/roms</code> with the SD button while a pod runs.</p>
+    <p>Wi-Fi, Git and Bluetooth are not available here: a web page cannot open network sockets.</p>
+  </footer>
+</main>
+
+<main id="runner" class="wrap" hidden>
+  <div class="bar">
+    <button id="back" class="icon-btn" type="button" aria-label="Back to pods">◀ Pods</button>
+    <span id="pod-title" class="bar-title"></span>
+    <button id="sd-btn" class="icon-btn" type="button">SD</button>
+    <button id="kbd-btn" class="icon-btn" type="button" aria-pressed="true" aria-label="Show touch keyboard">KBD</button>
+  </div>
+  <div class="screen-box">
+    <div class="bezel">
+      <canvas id="screen" width="320" height="320" aria-label="PicoCalc screen"></canvas>
+      <div id="start" class="overlay">
+        <h2 id="start-title">PodBoy</h2>
+        <p id="start-text">Tap to power on. Sound starts with it.</p>
+        <button id="start-btn" class="primary" type="button">Power on</button>
+      </div>
+      <div id="stopped" class="overlay" hidden>
+        <h2 id="stopped-title">Pod stopped</h2>
+        <p id="stopped-text"></p>
+        <button id="restart-btn" class="primary" type="button">Restart</button>
+      </div>
+    </div>
+  </div>
+  <div id="keyboard" aria-label="PicoCalc keyboard"></div>
+</main>
+
+<div id="panel" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="panel-h">
+    <div class="sheet-head">
+      <h2 id="panel-h">SD card</h2>
+      <button id="panel-close" class="icon-btn" type="button">Close</button>
+    </div>
+    <div class="upload">
+      <input id="upload-dir" type="text" value="/" aria-label="Folder to upload into" spellcheck="false" autocapitalize="off">
+      <div class="chips">
+        <button class="icon-btn" type="button" data-dir="/">/</button>
+        <button class="icon-btn" type="button" data-dir="/roms">/roms</button>
+      </div>
+      <button id="upload-btn" class="primary" type="button">Add files</button>
+      <input id="upload-file" type="file" multiple hidden>
+    </div>
+    <p id="panel-hint" class="hint">Files added here appear on the pod's card. Re-open its folder to see them.</p>
+    <ul id="files" class="files"></ul>
+    <details>
+      <summary class="label">Pod log</summary>
+      <pre id="log"></pre>
+    </details>
+  </div>
+</div>
+
+<script src="keyboard.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

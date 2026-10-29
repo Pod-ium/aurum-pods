@@ -1,0 +1,160 @@
+# Runs the merge gates on every push and pull request: G-host (PC build +
+# the pods' scripted sessions under ctest), G-fw (firmware for each supported
+# board, with the .uf2 files kept as build artifacts) and
+# G-web (PicoPods Web: the page with every pod of hydrogenium-, carbo-,
+# helium- and aurum-pods, artifact picopods-web).
+# The libraries come from hydrogenium-pods (see PICOPODS_REF below).
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+env:
+  PICO_SDK_REF: "2.1.1"
+  # hydrogenium-pods ref to build against (repository variable PICOPODS_REF,
+  # default main). CI uses a hydrogenium-pods branch named like the one being
+  # built when there is one, so a change across both repositories is tested together.
+  PICOPODS_REF: ${{ vars.PICOPODS_REF || 'main' }}
+  PICOPODS_PATH: ${{ github.workspace }}/hydrogenium-pods
+
+jobs:
+  host:
+    name: G-host (PC build + tests)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: hydrogenium-pods ref
+        id: picopods
+        run: echo "ref=$(tools/ci_ref.sh Pod-ium/hydrogenium-pods "$PICOPODS_REF")" >> "$GITHUB_OUTPUT"
+      - name: PicoPods libraries (hydrogenium-pods)
+        uses: actions/checkout@v4
+        with:
+          repository: Pod-ium/hydrogenium-pods
+          ref: ${{ steps.picopods.outputs.ref }}
+          path: hydrogenium-pods
+      - name: Pico SDK (BTstack sources for the Bluetooth tests)
+        uses: actions/checkout@v4
+        with:
+          repository: raspberrypi/pico-sdk
+          ref: ${{ env.PICO_SDK_REF }}
+          path: pico-sdk
+          submodules: true
+      - name: Packages
+        run: tools/ci_apt.sh cmake ninja-build g++ python3 libmbedtls-dev libsdl2-dev unzip
+      - name: Gate
+        env:
+          PICO_SDK_PATH: ${{ github.workspace }}/pico-sdk
+          CMAKE_GENERATOR: Ninja
+        run: tools/gate.sh host
+      - name: Test log
+        if: always()
+        run: cat build-gate/host-ctest.log || true
+
+  firmware:
+    name: G-fw (${{ matrix.board }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        # PodBoy needs an RP2350: only the RP2350 boards are built.
+        board: [pico2_w, pico2]
+    steps:
+      - uses: actions/checkout@v4
+      - name: hydrogenium-pods ref
+        id: picopods
+        run: echo "ref=$(tools/ci_ref.sh Pod-ium/hydrogenium-pods "$PICOPODS_REF")" >> "$GITHUB_OUTPUT"
+      - name: PicoPods libraries (hydrogenium-pods)
+        uses: actions/checkout@v4
+        with:
+          repository: Pod-ium/hydrogenium-pods
+          ref: ${{ steps.picopods.outputs.ref }}
+          path: hydrogenium-pods
+      - name: Pico SDK
+        uses: actions/checkout@v4
+        with:
+          repository: raspberrypi/pico-sdk
+          ref: ${{ env.PICO_SDK_REF }}
+          path: pico-sdk
+          submodules: true
+      - name: Packages
+        run: tools/ci_apt.sh cmake ninja-build g++ python3
+      # Arm's own toolchain (~150 MB, cached): the Ubuntu packages are 588 MB
+      # and the runners' mirror is often too slow to fetch them.
+      - name: Arm toolchain
+        uses: carlosperate/arm-none-eabi-gcc-action@v1
+        with:
+          release: "13.2.Rel1"
+      - name: Gate
+        env:
+          PICO_SDK_PATH: ${{ github.workspace }}/pico-sdk
+          CMAKE_GENERATOR: Ninja
+        run: tools/gate.sh fw ${{ matrix.board }}
+      - name: Build log
+        if: failure()
+        run: tail -n 100 build-gate/fw-${{ matrix.board }}-*.log || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aurum-${{ matrix.board }}
+          path: build-gate/fw-${{ matrix.board }}/**/*.uf2
+          if-no-files-found: error
+
+  web:
+    name: G-web (PicoPods Web, every pod)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: hydrogenium-pods ref
+        id: picopods
+        run: echo "ref=$(tools/ci_ref.sh Pod-ium/hydrogenium-pods "$PICOPODS_REF")" >> "$GITHUB_OUTPUT"
+      - name: PicoPods libraries (hydrogenium-pods)
+        uses: actions/checkout@v4
+        with:
+          repository: Pod-ium/hydrogenium-pods
+          ref: ${{ steps.picopods.outputs.ref }}
+          path: hydrogenium-pods
+      - name: Pod repositories refs
+        id: pods
+        run: |
+          echo "carbo=$(tools/ci_ref.sh Pod-ium/carbo-pods main)" >> "$GITHUB_OUTPUT"
+          echo "helium=$(tools/ci_ref.sh Pod-ium/helium-pods main)" >> "$GITHUB_OUTPUT"
+      - name: Productivity pods (carbo-pods)
+        uses: actions/checkout@v4
+        with:
+          repository: Pod-ium/carbo-pods
+          ref: ${{ steps.pods.outputs.carbo }}
+          path: carbo-pods
+      - name: Games (helium-pods)
+        uses: actions/checkout@v4
+        with:
+          repository: Pod-ium/helium-pods
+          ref: ${{ steps.pods.outputs.helium }}
+          path: helium-pods
+      - name: Pico SDK (mbedTLS sources)
+        uses: actions/checkout@v4
+        with:
+          repository: raspberrypi/pico-sdk
+          ref: ${{ env.PICO_SDK_REF }}
+          path: pico-sdk
+          submodules: true
+      - name: Packages
+        run: tools/ci_apt.sh cmake ninja-build python3
+      - uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.74
+      - name: Build
+        env:
+          PICO_SDK_PATH: ${{ github.workspace }}/pico-sdk
+          CARBO_PODS_PATH: ${{ github.workspace }}/carbo-pods
+          HELIUM_PODS_PATH: ${{ github.workspace }}/helium-pods
+          CMAKE_GENERATOR: Ninja
+        run: tools/build_web.sh dist/web
+      - uses: actions/upload-artifact@v4
+        with:
+          name: picopods-web
+          path: dist/web
+          if-no-files-found: error

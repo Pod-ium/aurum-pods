@@ -1,0 +1,113 @@
+# Release: build PodBoy for the PicoCalc + Pico 2 W and attach
+# it to the GitHub release as podboy_<version>.uf2
+# (e.g. podboy_1.0.0.uf2 for tag v1.0.0), with a SHA256SUMS file.
+# It also builds PicoPods Web (every pod, from the hydrogenium-, carbo- and
+# helium-pods refs below) and attaches it as picopods-web_<version>.zip.
+#   - pushing a tag v* creates the release (notes generated from the commits)
+#     if it does not exist yet, then attaches the files;
+#   - publishing a release from the GitHub UI attaches them to it;
+#   - it can also be run by hand for an existing tag, to rebuild its files.
+# The libraries come from hydrogenium-pods at PICOPODS_REF: set the
+# repository variable to a hydrogenium-pods tag to make releases reproducible.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to build and attach firmware to (e.g. v1.0.0)"
+        required: true
+
+permissions:
+  contents: write   # create the release, upload release assets
+
+env:
+  PICO_SDK_REF: "2.1.1"
+  PICOPODS_REF: ${{ vars.PICOPODS_REF || 'main' }}
+  PICOPODS_PATH: ${{ github.workspace }}/hydrogenium-pods
+  TAG: ${{ inputs.tag || github.event.release.tag_name || github.ref_name }}
+
+concurrency:
+  group: release-${{ inputs.tag || github.event.release.tag_name || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  firmware:
+    name: Build and attach .uf2 and PicoPods Web
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - name: PicoPods libraries (hydrogenium-pods)
+        uses: actions/checkout@v4
+        with:
+          repository: Pod-ium/hydrogenium-pods
+          ref: ${{ env.PICOPODS_REF }}
+          path: hydrogenium-pods
+      - name: Pico SDK
+        uses: actions/checkout@v4
+        with:
+          repository: raspberrypi/pico-sdk
+          ref: ${{ env.PICO_SDK_REF }}
+          path: pico-sdk
+          submodules: true
+      - name: Packages
+        run: tools/ci_apt.sh cmake ninja-build python3 zip
+      # Arm's own toolchain (~150 MB, cached): the Ubuntu packages are 588 MB
+      # and the runners' mirror is often too slow to fetch them.
+      - name: Arm toolchain
+        uses: carlosperate/arm-none-eabi-gcc-action@v1
+        with:
+          release: "13.2.Rel1"
+      - name: Build
+        env:
+          PICO_SDK_PATH: ${{ github.workspace }}/pico-sdk
+          CMAKE_GENERATOR: Ninja
+        run: tools/package_release.sh "$TAG" dist
+      - name: Pod repositories (for PicoPods Web)
+        id: pods
+        run: |
+          echo "carbo=${{ vars.CARBO_PODS_REF || 'main' }}" >> "$GITHUB_OUTPUT"
+          echo "helium=${{ vars.HELIUM_PODS_REF || 'main' }}" >> "$GITHUB_OUTPUT"
+      - name: Productivity pods (carbo-pods)
+        uses: actions/checkout@v4
+        with:
+          repository: Pod-ium/carbo-pods
+          ref: ${{ steps.pods.outputs.carbo }}
+          path: carbo-pods
+      - name: Games (helium-pods)
+        uses: actions/checkout@v4
+        with:
+          repository: Pod-ium/helium-pods
+          ref: ${{ steps.pods.outputs.helium }}
+          path: helium-pods
+      - uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.74
+      - name: Build PicoPods Web
+        env:
+          PICO_SDK_PATH: ${{ github.workspace }}/pico-sdk
+          CARBO_PODS_PATH: ${{ github.workspace }}/carbo-pods
+          HELIUM_PODS_PATH: ${{ github.workspace }}/helium-pods
+          CMAKE_GENERATOR: Ninja
+        run: |
+          tools/build_web.sh dist-web/picopods-web
+          v=${TAG#v}
+          (cd dist-web && zip -qr "../dist/picopods-web_$v.zip" picopods-web)
+          (cd dist && sha256sum "picopods-web_$v.zip" >> "SHA256SUMS_$v.txt")
+      - name: Create the release (tag push)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 ||
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes --title "$TAG"
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
