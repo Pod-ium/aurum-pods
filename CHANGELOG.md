@@ -11,6 +11,11 @@ CHANGELOG of hydrogenium-pods.
   on the libraries of hydrogenium-pods (`picopods_import.cmake`).
 - CI (G-host, G-fw, G-web) on pushes and pull requests; release workflow on
   tags `v*` and published releases.
+- "Pod test build" workflow (`.github/workflows/pod-test.yml`,
+  `tools/package_test.sh`): run by hand from the Actions tab on any branch to
+  build the pods for a board and attach them to the `test` pre-release as
+  `<pod>-test.uf2` (e.g. `podboy-test.uf2`), for flashing and testing on
+  hardware.
 
 ### Pods
 

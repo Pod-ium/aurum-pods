@@ -61,6 +61,11 @@ the SD card and start it from [UF2 Loader](https://github.com/pelrun/uf2loader).
   (tag `v1.2.0` gives version `1.2.0`). Locally:
   `PICO_SDK_PATH=… tools/package_release.sh <version>`. It can also be run
   by hand from the Actions tab for an existing tag.
+- **Test builds for hardware** (`.github/workflows/pod-test.yml`): run by
+  hand from the Actions tab on any branch; builds PodBoy for the chosen
+  board (RP2350 only) and publishes it to the `test` pre-release as
+  `podboy-test.uf2` and `SHA256SUMS-test.txt`. Locally:
+  `PICO_SDK_PATH=… tools/package_test.sh`.
 - **Which libraries.** CI and releases build against hydrogenium-pods
   `main`, or the ref in the repository variable `PICOPODS_REF` (set it to a
   hydrogenium-pods tag to make releases reproducible). On a branch, CI uses
