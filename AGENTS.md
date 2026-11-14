@@ -29,9 +29,9 @@ pods/podboy/src/      main.cpp (ROM browser, pause menu, main loop), config.h (k
 pods/podboy/tools/host_test/main.cpp
 tests/                CMakeLists.txt (scripted session)
 web/                  index.html, app.js (launcher, pod runner, IndexedDB library), keyboard.js (touch keyboard)
-tools/                gate.sh, package_release.sh, build_web_pods.sh (this repo's pods),
+tools/                gate.sh, package_release.sh, package_test.sh, build_web_pods.sh (this repo's pods),
                       build_web.sh (the whole site), ci_ref.sh, ci_apt.sh
-.github/workflows/    ci.yml, release.yml, pages.yml (GitHub Pages)
+.github/workflows/    ci.yml, release.yml, pod-test.yml, pages.yml (GitHub Pages)
 picopods_import.cmake
 ```
 
