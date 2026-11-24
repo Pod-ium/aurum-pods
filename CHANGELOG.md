@@ -23,6 +23,9 @@ CHANGELOG of hydrogenium-pods.
 - First added in PicoPods (Unreleased): the pods in a browser, with a
   touch PicoCalc keyboard, sound, an IndexedDB SD card and pod files that
   load like cartridges.
+- The launcher lists **The Last Bell** (helium-pods) with a description, and
+  PodCraft's blurb key is fixed to its build name (`podcraft`), so its
+  description shows again.
 
 ## PicoPods 1.0.0 (2026-10-24)
 
