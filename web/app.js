@@ -12,7 +12,8 @@ const BLURBS = {
   podboy: "Game Boy (DMG) emulator. Put .gb ROMs in /roms.",
   podwriter: "Text editor with undo, syntax colours and ePub export.",
   podfiles: "File manager: copy, move, delete. No network here.",
-  picocraft: "Voxel sandbox: build and dig in a block world.",
+  podcraft: "Voxel sandbox: build and dig in a block world.",
+  lastbell: "Turn-based RPG: ring the Four Bells of Vael, face the Hollow King.",
   pd_demo: "Tour of the libraries: keyboard, colours, audio.",
 };
 
